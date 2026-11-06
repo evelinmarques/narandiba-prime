@@ -63,6 +63,13 @@
   .dlg p{font-size:calc(var(--u)*15);margin-top:calc(var(--u)*3)}
   .how{background:rgba(255,255,255,.12);border-radius:calc(var(--u)*14);padding:calc(var(--u)*12);font-size:calc(var(--u)*15);line-height:1.4;width:100%}
   .grp{width:calc(var(--u)*340);height:calc(var(--u)*130)}
+  .rank{width:100%;background:rgba(255,255,255,.1);border-radius:calc(var(--u)*14);padding:calc(var(--u)*8);flex:none}
+  .rank ol{list-style:none}.rank li{display:flex;align-items:center;gap:calc(var(--u)*8);padding:calc(var(--u)*6) calc(var(--u)*8);border-radius:calc(var(--u)*10);font-size:calc(var(--u)*15);font-weight:800}
+  .rank li:nth-child(odd){background:rgba(255,255,255,.06)}.rank li.me{background:rgba(255,216,77,.28)}
+  .rank .pos{width:calc(var(--u)*34);text-align:center}.rank .nm{flex:1;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.rank .sc{color:#ffd84d}
+  .rin{width:100%;flex:none;border:0;border-radius:calc(var(--u)*12);padding:calc(var(--u)*12);font:800 calc(var(--u)*17) system-ui,sans-serif;text-align:center;user-select:text;-webkit-user-select:text}
+  .rmsg{min-height:calc(var(--u)*18);font-size:calc(var(--u)*14);font-weight:800}
+  .pts{background:rgba(255,216,77,.2);border-radius:calc(var(--u)*14);padding:calc(var(--u)*8) calc(var(--u)*16);font-size:calc(var(--u)*18);font-weight:900;color:#ffd84d}.pts small{color:#fff;font-size:calc(var(--u)*13)}
   .disc{font-size:calc(var(--u)*11);opacity:.8;line-height:1.35;max-width:calc(var(--u)*320);font-style:italic}
   .big{font-size:calc(var(--u)*54)}
 </style>
@@ -74,6 +81,13 @@
 </div>
 <script>
 (()=>{
+// =====================================================================
+// CONFIGURAÇÃO DO RANKING ONLINE (Supabase)
+// Cole aqui a "Project URL" e a "Publishable key" (ou a "anon key") do seu
+// projeto no Supabase. Deixe vazio para jogar sem ranking online.
+const RANK_URL='https://nerakwltfctctgchnudj.supabase.co';   // ex.: 'https://abcdefgh.supabase.co'
+const RANK_KEY='sb_publishable_O6f43KoSwAVm6aErw_M-oA_F07VZfLR';   // ex.: 'sb_publishable_...'
+// =====================================================================
 const W=400,H=700;
 const wrap=document.getElementById('wrap'),cv=document.getElementById('c'),ctx=cv.getContext('2d'),ov=document.getElementById('ov');
 let scale=1,dpr=1;
@@ -225,6 +239,9 @@ function act(a,d){
   else if(a==='next'){if(curPhase<PH.length)startPhase(curPhase+1);else showEnding();}
   else if(a==='menu'){phase=null;state='menu';showTitle();}
   else if(a==='map')showMap();
+  else if(a==='rank'){rankFrom=(state==='won'||state==='map')?'map':'title';if(state==='won'){state='menu';phase=null;}showRank();}
+  else if(a==='rsend')sendRank();
+  else if(a==='rload')loadRank();
 }
 function showTitle(){
   state='menu';phase=null;
@@ -233,6 +250,7 @@ function showTitle(){
   <canvas class="grp" data-por="group"></canvas>
   <button class="btn main" data-act="map">▶ JOGAR</button>
   <button class="btn" data-act="chars">Personagem: ${hero().name}</button>
+  <button class="btn" data-act="rank">🏆 Ranking</button>
   <div class="row"><button class="btn small" data-act="music">${save.music?'🎵 Música ligada':'🎵 Música desligada'}</button><button class="btn small" data-act="sound">${save.sound?'🔊 Efeitos ligados':'🔇 Efeitos desligados'}</button></div>
   <div class="disc">⚠️ Qualquer semelhança com pessoas ou fatos reais é mera coincidência. Baseado em fatos fictícios.</div>`);
 }
@@ -305,12 +323,58 @@ const NOTICE_FINAL=`<div class="notice"><b>🎉 VIU COMO É BOM QUANDO TUDO ACAB
 <p>E não é só lazer: <b>mais vagas de estacionamento, academia</b> e muito mais.</p>
 <p>Estamos só esperando você para que esse sonho seja possível. ✍️ <b>Assine a lista!</b></p></div>`;
 const NOTICE_PHASES=[2,3,11];
+// ---------- pontos & ranking ----------
+function totalPts(){let t=0;for(const k in (save.pts||{}))t+=save.pts[k]||0;return t;}
+function phasesDone(){return Object.keys(save.done||{}).filter(k=>(save.done[k]||[]).length).length;}
+if(!save.pts){save.pts={};for(const k in (save.done||{}))for(const d of save.done[k])save.pts[k+'-'+d]=Math.round([100,200,350][d]*1.5);persist();}
+if(!save.pid){save.pid=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==='x'?r:(r&3|8)).toString(16);});persist();}
+const RANK_ON=()=>!!(RANK_URL&&RANK_KEY);
+function rHeaders(){const h={apikey:RANK_KEY,'Content-Type':'application/json'};if(RANK_KEY.startsWith('eyJ'))h.Authorization='Bearer '+RANK_KEY;return h;}
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let rankCache=null,rankFrom='title';
+function renderRank(l){if(!l.length)return '<p>Ninguém no ranking ainda. Seja o primeiro! 🥇</p>';
+  return '<ol>'+l.map((x,i)=>`<li class="${x.player_id===save.pid?'me':''}"><span class="pos">${['🥇','🥈','🥉'][i]||(i+1)+'º'}</span><span class="nm">${esc(x.name)}</span><span class="sc">⭐ ${x.score}</span></li>`).join('')+'</ol>';}
+function setRMsg(m){const el=document.getElementById('rmsg');if(el)el.innerHTML=m;}
+async function loadRank(){
+  const put=h=>{const el=document.getElementById('rlist');if(el)el.innerHTML=h;};
+  if(!RANK_ON()){put('<p>O ranking online ainda não foi configurado. ⚙️</p>');return;}
+  try{const r=await fetch(`${RANK_URL}/rest/v1/ranking?select=player_id,name,score,phases&order=score.desc,created_at.asc&limit=300`,{headers:rHeaders()});
+    if(!r.ok)throw new Error(r.status);const rows=await r.json(),seen=new Set(),top=[];
+    for(const x of rows){if(seen.has(x.player_id))continue;seen.add(x.player_id);top.push(x);if(top.length>=10)break;}
+    rankCache=top;put(renderRank(top));}
+  catch(e){put('<p>Não consegui carregar o ranking. Verifique a internet. 📶</p>');}
+}
+async function sendRank(){
+  const inp=document.getElementById('rname');const name=(inp?inp.value:'').replace(/[<>]/g,'').replace(/\s+/g,' ').trim().slice(0,16);
+  if(!name){setRMsg('Digite seu nome primeiro 🙂');return;}
+  save.name=name;persist();const score=totalPts();
+  if(score<=0){setRMsg('Vença pelo menos uma fase para entrar no ranking! 💪');return;}
+  if(!RANK_ON()){setRMsg('O ranking online ainda não foi configurado.');return;}
+  setRMsg('Enviando…');
+  try{const r=await fetch(`${RANK_URL}/rest/v1/ranking`,{method:'POST',headers:Object.assign(rHeaders(),{Prefer:'return=minimal'}),body:JSON.stringify({player_id:save.pid,name,score,phases:phasesDone()})});
+    if(!r.ok)throw new Error(r.status);save.sent=score;persist();setRMsg('✅ Pontuação enviada!');jingle();loadRank();}
+  catch(e){setRMsg('❌ Não deu para enviar. Tente de novo.');}
+}
+function showRank(){
+  show(`<h2>🏆 Top 10 do Narandiba</h2>
+   <div class="rank" id="rlist">${rankCache?renderRank(rankCache):'<p>Carregando…</p>'}</div>
+   <div class="how">Sua pontuação: <b>⭐ ${totalPts()}</b> • ${phasesDone()} de ${PH.length} fases<br><small>Mais pontos no Difícil e jogando sem errar!</small></div>
+   <input id="rname" class="rin" maxlength="16" placeholder="Seu nome ou apelido" value="${esc(save.name||'')}" autocomplete="nickname">
+   <button class="btn main" data-act="rsend">Enviar pontuação</button>
+   <div id="rmsg" class="rmsg"></div>
+   <div class="row"><button class="btn small" data-act="rload">🔄 Atualizar</button><button class="btn small" data-act="${rankFrom}">← Voltar</button></div>`);
+  const inp=document.getElementById('rname');if(inp)inp.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter'){inp.blur();sendRank();}});
+  loadRank();
+}
 function winPhase(msg){
   if(state!=='play')return;state='won';jingle();vib([60,40,60]);
-  save.done=save.done||{};const dn=save.done[curPhase]||[];if(!dn.includes(DF.i))dn.push(DF.i);save.done[curPhase]=dn;persist();
-  show(`<div class="big">${PH[curPhase-1].ic}</div><h2>${msg}</h2><p>Fase ${curPhase} concluída!</p>${curPhase===PH.length?NOTICE_FINAL:NOTICE_PHASES.includes(curPhase)?NOTICE:''}
+  save.done=save.done||{};const dn=save.done[curPhase]||[];if(!dn.includes(DF.i))dn.push(DF.i);save.done[curPhase]=dn;
+  const base=[100,200,350][DF.i],perf=phase&&phase.perf?clamp(phase.perf()||0,0,1):.5,pts=Math.round(base*(1+perf));
+  save.pts=save.pts||{};const pk=curPhase+'-'+DF.i,prev=save.pts[pk]||0;if(pts>prev)save.pts[pk]=pts;persist();
+  show(`<div class="big">${PH[curPhase-1].ic}</div><h2>${msg}</h2><p>Fase ${curPhase} concluída!</p>
+   <div class="pts">⭐ +${pts} pontos${prev&&pts>prev?' • novo recorde!':''}<br><small>Total: ${totalPts()} pontos</small></div>${curPhase===PH.length?NOTICE_FINAL:NOTICE_PHASES.includes(curPhase)?NOTICE:''}
    <button class="btn main" data-act="next">${curPhase<PH.length?'Próxima fase ▶':'Ver o final 🏆'}</button>
-   <button class="btn small" data-act="map">🗺️ Mapa</button>`);
+   <div class="row"><button class="btn small" data-act="rank">🏆 Ranking</button><button class="btn small" data-act="map">🗺️ Mapa</button></div>`);
 }
 function losePhase(msg){
   if(state!=='play')return;state='over';sadTune();vib(200);
@@ -345,6 +409,7 @@ function mapUpdate(dt){MAP.t+=dt;
     else{MAP.x+=dx/d*st;MAP.y+=dy/d*st;}}}
 function mapTap(x,y){
   if(x<100&&y<46){beep(660,.06,'triangle',.05);showTitle();return;}
+  if(x>200&&y<46){beep(660,.06,'triangle',.05);rankFrom='map';state='menu';showRank();return;}
   for(let i=0;i<3;i++){const px=45+i*110;if(x>px&&x<px+100&&y>52&&y<90){save.diff=i;persist();beep(500+i*150,.08,'triangle',.05);return;}}
   if(x>246&&x<384&&y>622&&y<686){if(!MAP.walking){beep(660,.06,'triangle',.05);startPhase(MAP.cur+1);}return;}
   for(let i=0;i<NODES.length;i++){const [nx,ny]=NODES[i];if(Math.hypot(x-nx,y-ny)<32){if(i===MAP.cur&&!MAP.walking)startPhase(i+1);else mapGo(i);return;}}
@@ -385,7 +450,7 @@ function drawMap(g){
   // topo
   g.fillStyle='rgba(8,18,12,.62)';g.fillRect(0,0,W,46);
   g.fillStyle='rgba(255,255,255,.18)';rr(g,8,7,88,32,10);g.fill();ptext(g,'← Menu',52,23,14,'#fff',800,0,'center');
-  otext(g,'🗺️ MAPA DO CONDOMÍNIO',250,23,14,'#ffd84d');
+  otext(g,'🗺️ MAPA',150,23,14,'#ffd84d');g.fillStyle='rgba(255,216,77,.2)';rr(g,206,8,186,30,15);g.fill();ptext(g,`⭐ ${totalPts()} pts • 🏆 Ranking`,299,23,13,'#ffd84d',900,176,'center');
   for(let i=0;i<3;i++){const px=45+i*110,sel=(save.diff==null?1:save.diff)===i;g.fillStyle=sel?DIFF_COLS[i]:'rgba(0,0,0,.4)';rr(g,px,55,100,30,15);g.fill();
     g.strokeStyle=DIFF_COLS[i];g.lineWidth=2;rr(g,px,55,100,30,15);g.stroke();ptext(g,(sel?'✓ ':'')+DIFF_NAMES[i],px+50,70,14,sel?'#14201a':'#fff',900,0,'center');}
   otext(g,'Toque numa fase para andar até ela',200,574,12,'#fff');
@@ -532,6 +597,7 @@ function Phase1(){
     else hudBar(g,'FASE '+curPhase,`Parados ${P.stopped}/${P.goal}`,`🌳 ${'❌'.repeat(P.lost)}${'·'.repeat(Math.max(0,P.maxLost-P.lost))}`);
   };
   P.meta=`Pare ${P.goal} desmatadores • perde com ${P.maxLost} árvores derrubadas`;
+  P.perf=()=>1-P.lost/P.maxLost;
   return P;
 }
 function drawTractor(g,tr){
@@ -673,6 +739,7 @@ function Phase2(){
     if(P.hint>0&&!input.joy){g.globalAlpha=clamp(P.hint,0,1);otext(g,'👆 Arraste o dedo para dirigir',200,600,16,'#fff');g.globalAlpha=1;}};
   P.timeStr=()=>{const tot=18*60+Math.min(240,Math.floor(P.clock/P.dur*240));return String(Math.floor(tot/60)).padStart(2,'0')+':'+String(tot%60).padStart(2,'0');};
   P.meta=`Ache vaga antes das 22h • perde se pegarem ${P.maxStolen} vagas antes de você`;
+  P.perf=()=>1-P.stolen/P.maxStolen;
   return P;
 }
 
@@ -732,6 +799,7 @@ function PhaseKids(){
     otext(g,fast?'⚠️ RÁPIDO!':'🐢 devagar',200,63,13,fast?'#ffb84d':'#7cf08a');
     if(P.hint>0&&!input.joy){g.globalAlpha=clamp(P.hint,0,1);otext(g,'👆 Arraste o dedo para dirigir',200,560,16,'#fff');g.globalAlpha=1;}};
   P.meta=`Perde com ${P.maxHits} sustos`;
+  P.perf=()=>1-P.hits/P.maxHits;
   return P;
 }
 
@@ -833,6 +901,7 @@ function PhasePets(){
   P.hud=g=>{hudBar(g,'FASE '+curPhase,`Recolhidos ${P.got}/${P.goal}`,`Multas ${P.fines}/${P.maxFines}`);
     if(P.hint>0&&!input.joy){g.globalAlpha=clamp(P.hint,0,1);otext(g,'👆 Arraste para passear e passe por cima da sujeira',200,640,13,'#fff');g.globalAlpha=1;}};
   P.meta=`Recolha ${P.goal} sujeiras • perde com ${P.maxFines} multas`;
+  P.perf=()=>1-P.fines/P.maxFines;
   return P;
 }
 
@@ -903,6 +972,7 @@ function PhaseSom(){
   P.hud=g=>{hudBar(g,'FASE '+curPhase,`🕙 ${P.timeStr()}`,`Abaixou ${P.lowered}`);
     meterBar(g,P.annoy,P.annoy<.5?'#ffd84d':'#ff4d4d','Incômodo dos vizinhos 😠');};
   P.meta='Aguente até as 2h sem os vizinhos estourarem';
+  P.perf=()=>1-P.annoy;
   return P;
 }
 
@@ -965,6 +1035,7 @@ function PhaseBar(){
   P.hud=g=>{hudBar(g,'FASE '+curPhase,`Foram embora ${P.sent}/${P.goal}`,`😤 ${P.comp}/${P.maxComp}`);
     if(P.hint>0&&!input.joy){g.globalAlpha=clamp(P.hint,0,1);otext(g,'👆 Arraste e fique perto para conversar',200,560,15,'#fff');g.globalAlpha=1;}};
   P.meta=`Mande ${P.goal} embora • perde com ${P.maxComp} reclamações`;
+  P.perf=()=>1-P.comp/P.maxComp;
   return P;
 }
 
@@ -1037,6 +1108,7 @@ function PhaseBox(){
     otext(g,P.carry===0?'▲ Vá até o último bloco':P.carry<P.maxCarry?`Carregando ${P.carry}/3 • ▼ entregue`:'▼ Leve até o seu bloco!',200,63,12,'#fff');
     if(P.hint>0&&!input.joy){g.globalAlpha=clamp(P.hint,0,1);otext(g,'👆 Arraste o dedo para correr',200,560,16,'#fff');g.globalAlpha=1;}};
   P.meta=`${P.time}s • entregue pelo menos ${P.need} encomendas`;
+  P.perf=()=>(P.score-P.need)/(P.need*.75);
   return P;
 }
 
@@ -1100,6 +1172,7 @@ function PhaseEscola(){
     meterBar(g,P.clock/P.dur,P.clock/P.dur<.6?'#ffd84d':'#ff4d4d','Tempo até a escola abrir ⏰');
     if(P.hint>0&&!input.joy){g.globalAlpha=clamp(P.hint,0,1);otext(g,'👆 Arraste e corra até o carro ▼',200,560,16,'#fff');g.globalAlpha=1;}};
   P.meta=`Chegue ao carro antes das 7h (${P.dur}s)`;
+  P.perf=()=>1-P.clock/P.dur;
   return P;
 }
 
@@ -1193,6 +1266,7 @@ function PhaseSelfie(){
   };
   P.hud=g=>{hudBar(g,'FASE '+curPhase,`🕖 ${clockStr()}`,'Até 23h');meterBar(g,P.peace,P.peace>.4?'#7cf08a':'#ff4d4d','Paz no grupo 🕊️');};
   P.meta=`Mantenha a paz no grupo das 7h às 23h (${P.dur}s)`;
+  P.perf=()=>P.peace;
   return P;
 }
 
@@ -1276,6 +1350,7 @@ function PhaseFeira(){
     g.fillStyle='rgba(0,0,0,.5)';rr(g,120,52,160,22,11);g.fill();otext(g,`😡 Foram embora: ${P.angry}/${P.maxAngry}`,200,63,12,'#fff');
     if(P.t<4){g.globalAlpha=clamp(4-P.t,0,1);otext(g,'👆 Toque no balãozinho do cliente para atender',200,670,14,'#fff');g.globalAlpha=1;}};
   P.meta=`Venda R$ ${P.goal} em ${P.time}s • perde se ${P.maxAngry} clientes forem embora`;
+  P.perf=()=>1-P.angry/P.maxAngry;
   return P;
 }
 
@@ -1383,6 +1458,7 @@ function Phase3(){
     for(let i=0;i<pl.max;i++)heart(g,345-pl.max*16+i*16,24,i<pl.hp?'#ff4d6d':'rgba(255,255,255,.25)');
     if(P.hint>0&&!input.joy){g.globalAlpha=clamp(P.hint,0,1);otext(g,'👆 Arraste o dedo para andar',200,640,16,'#fff');g.globalAlpha=1;}};
   P.meta=`${P.goal} bichos + Aranha Rainha • ${P.pl.max} vidas`;
+  P.perf=()=>P.pl.hp/P.pl.max;
   return P;
 }
 

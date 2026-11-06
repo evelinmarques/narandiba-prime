@@ -238,7 +238,9 @@ function act(a,d){
   else if(a==='retry')startPhase(curPhase);
   else if(a==='next'){if(curPhase<PH.length)startPhase(curPhase+1);else showEnding();}
   else if(a==='menu'){phase=null;state='menu';showTitle();}
-  else if(a==='map')showMap();
+  else if(a==='map'){if(!save.name)showName('map');else showMap();}
+  else if(a==='name')showName('title');
+  else if(a==='nameok')nameOk();
   else if(a==='rank'){rankFrom=(state==='won'||state==='map')?'map':'title';if(state==='won'){state='menu';phase=null;}showRank();}
   else if(a==='rsend')sendRank();
   else if(a==='rload')loadRank();
@@ -249,6 +251,7 @@ function showTitle(){
   <div class="sub">A aventura do condomínio</div>
   <canvas class="grp" data-por="group"></canvas>
   <button class="btn main" data-act="map">▶ JOGAR</button>
+  <button class="btn small" data-act="name">👤 ${esc(save.name||'Sem nome')} • trocar</button>
   <button class="btn" data-act="chars">Personagem: ${hero().name}</button>
   <button class="btn" data-act="rank">🏆 Ranking</button>
   <div class="row"><button class="btn small" data-act="music">${save.music?'🎵 Música ligada':'🎵 Música desligada'}</button><button class="btn small" data-act="sound">${save.sound?'🔊 Efeitos ligados':'🔇 Efeitos desligados'}</button></div>
@@ -344,17 +347,44 @@ async function loadRank(){
     rankCache=top;put(renderRank(top));}
   catch(e){put('<p>Não consegui carregar o ranking. Verifique a internet. 📶</p>');}
 }
+const cleanName=s=>String(s||'').replace(/[<>]/g,'').replace(/\s+/g,' ').trim().slice(0,16);
+async function postScore(){
+  const score=totalPts();if(!RANK_ON()||!save.name||score<=0)return false;
+  const r=await fetch(`${RANK_URL}/rest/v1/ranking`,{method:'POST',headers:Object.assign(rHeaders(),{Prefer:'return=minimal'}),body:JSON.stringify({player_id:save.pid,name:save.name,score,phases:phasesDone()})});
+  if(!r.ok)throw new Error(r.status);save.sent=score;save.sentName=save.name;persist();return true;
+}
 async function sendRank(){
-  const inp=document.getElementById('rname');const name=(inp?inp.value:'').replace(/[<>]/g,'').replace(/\s+/g,' ').trim().slice(0,16);
+  const inp=document.getElementById('rname');const name=cleanName(inp?inp.value:save.name);
   if(!name){setRMsg('Digite seu nome primeiro 🙂');return;}
-  save.name=name;persist();const score=totalPts();
-  if(score<=0){setRMsg('Vença pelo menos uma fase para entrar no ranking! 💪');return;}
+  save.name=name;persist();
+  if(totalPts()<=0){setRMsg('Vença pelo menos uma fase para entrar no ranking! 💪');return;}
   if(!RANK_ON()){setRMsg('O ranking online ainda não foi configurado.');return;}
   setRMsg('Enviando…');
-  try{const r=await fetch(`${RANK_URL}/rest/v1/ranking`,{method:'POST',headers:Object.assign(rHeaders(),{Prefer:'return=minimal'}),body:JSON.stringify({player_id:save.pid,name,score,phases:phasesDone()})});
-    if(!r.ok)throw new Error(r.status);save.sent=score;persist();setRMsg('✅ Pontuação enviada!');jingle();loadRank();}
+  try{await postScore();setRMsg('✅ Pontuação enviada!');jingle();loadRank();}
   catch(e){setRMsg('❌ Não deu para enviar. Tente de novo.');}
 }
+function autoSend(){
+  if(!RANK_ON()||!save.name||(totalPts()<=(save.sent||0)&&save.sentName===save.name))return;
+  const el=()=>document.getElementById('wrank');
+  postScore().then(ok=>{if(ok&&el())el().innerHTML='🏆 Pontuação atualizada no ranking!';}).catch(()=>{if(el())el().innerHTML='📶 Sem internet — envio depois pelo Ranking.';});
+}
+let nameNext='title';
+function showName(next){
+  nameNext=next||'title';state='menu';phase=null;
+  show(`<div class="logo"><span>NARANDIBA</span><b>PRIME</b></div>
+   <h2 style="font-size:calc(var(--u)*24)">Qual é o seu nome? 👋</h2>
+   <p>Ele aparece no <b>🏆 ranking</b> dos melhores jogadores do condomínio.</p>
+   <input id="pname" class="rin" maxlength="16" placeholder="Seu nome ou apelido" value="${esc(save.name||'')}" autocomplete="nickname">
+   <div id="nmsg" class="rmsg"></div>
+   <button class="btn main" data-act="nameok">Começar ▶</button>
+   ${save.name?'<button class="btn small" data-act="title">← Voltar</button>':''}`);
+  const inp=document.getElementById('pname');
+  if(inp){inp.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter'){inp.blur();nameOk();}});setTimeout(()=>{try{inp.focus()}catch(_){}},150);}
+}
+function nameOk(){const inp=document.getElementById('pname');const n=cleanName(inp&&inp.value);
+  if(!n){const m=document.getElementById('nmsg');if(m)m.innerHTML='Digite seu nome para começar 🙂';return;}
+  const changed=n!==save.name;save.name=n;persist();if(changed)autoSend();
+  if(nameNext==='map')showMap();else showTitle();}
 function showRank(){
   show(`<h2>🏆 Top 10 do Narandiba</h2>
    <div class="rank" id="rlist">${rankCache?renderRank(rankCache):'<p>Carregando…</p>'}</div>
@@ -372,9 +402,10 @@ function winPhase(msg){
   const base=[100,200,350][DF.i],perf=phase&&phase.perf?clamp(phase.perf()||0,0,1):.5,pts=Math.round(base*(1+perf));
   save.pts=save.pts||{};const pk=curPhase+'-'+DF.i,prev=save.pts[pk]||0;if(pts>prev)save.pts[pk]=pts;persist();
   show(`<div class="big">${PH[curPhase-1].ic}</div><h2>${msg}</h2><p>Fase ${curPhase} concluída!</p>
-   <div class="pts">⭐ +${pts} pontos${prev&&pts>prev?' • novo recorde!':''}<br><small>Total: ${totalPts()} pontos</small></div>${curPhase===PH.length?NOTICE_FINAL:NOTICE_PHASES.includes(curPhase)?NOTICE:''}
+   <div class="pts">⭐ +${pts} pontos${prev&&pts>prev?' • novo recorde!':''}<br><small>Total: ${totalPts()} pontos</small><div id="wrank" style="font-size:calc(var(--u)*12);color:#fff;margin-top:calc(var(--u)*3)"></div></div>${curPhase===PH.length?NOTICE_FINAL:NOTICE_PHASES.includes(curPhase)?NOTICE:''}
    <button class="btn main" data-act="next">${curPhase<PH.length?'Próxima fase ▶':'Ver o final 🏆'}</button>
    <div class="row"><button class="btn small" data-act="rank">🏆 Ranking</button><button class="btn small" data-act="map">🗺️ Mapa</button></div>`);
+  autoSend();
 }
 function losePhase(msg){
   if(state!=='play')return;state='over';sadTune();vib(200);
@@ -1534,7 +1565,7 @@ function loop(now){
   else drawMenuBg(ctx,T);
   requestAnimationFrame(loop);
 }
-resize();showTitle();requestAnimationFrame(loop);
+resize();if(save.name)showTitle();else showName('title');requestAnimationFrame(loop);
 })();
 </script>
 </body>

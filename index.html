@@ -222,7 +222,7 @@ function act(a,d){
   else if(a==='start'){hide();state='play';}
   else if(a==='resume'){hide();state='play';}
   else if(a==='retry')startPhase(curPhase);
-  else if(a==='next'){if(curPhase<9)startPhase(curPhase+1);else showEnding();}
+  else if(a==='next'){if(curPhase<PH.length)startPhase(curPhase+1);else showEnding();}
   else if(a==='menu'){phase=null;state='menu';showTitle();}
   else if(a==='map')showMap();
 }
@@ -250,6 +250,8 @@ const PH=[
  {ic:'🍺',name:'Bagunça no Mercadinho',d:'Aqui não pode!'},
  {ic:'📦',name:'Encomendas',d:'Lá no último bloco'},
  {ic:'🏫',name:'Carro na Escola',d:'Fuja da multa!'},
+ {ic:'🤳',name:'A Selfie do Dia',d:'Paz no grupo do condomínio'},
+ {ic:'🧁',name:'Feirinha do Empreendedor',d:'Bolo, pastel, sorvete e doce!'},
  {ic:'🐍',name:'A Quadra',d:'Cobras, aranhas e selva'},
 ];
 function showPhases(){
@@ -275,12 +277,16 @@ const INTROS=[
    how:'🕹️ <b>Arraste para correr</b>. Pare no <b>depósito lá em cima</b> para pegar até 3 caixas e leve até <b>o seu bloco, lá embaixo</b>. Cuidado com bikes e carrinhos! Entregue o mínimo antes do tempo acabar.'}),
  ()=>({sp:speaker('cons1','cons3'),t:'Ontem você não achou vaga e deixou o carro em frente à escola… A escola abre às 7h e o agente da Transalvador já está a caminho!',
    how:'🕹️ <b>Arraste para correr</b> até o seu carro, lá embaixo, antes das 7h. Cuidado ao atravessar a rua! Se o agente chegar primeiro, é multa.'}),
+ ()=>({sp:speaker('cons2','cons4'),t:'No grupo do condomínio tem um vizinho que manda selfie todo santo dia… e sempre tem alguém reclamando! Mantenha a paz no grupo até o fim do dia.',
+   how:'👆 Toque nas mensagens: ❤️ <b>curta as selfies</b> (senão ele manda mais!), 💬 <b>acalme quem reclama</b> e 📌 <b>fixe os avisos importantes</b> antes que sumam lá pra cima. Não deixe a paz do grupo acabar!'}),
+ ()=>({sp:speaker('cons3','cons1'),t:'Hoje tem feirinha dos empreendedores do condomínio! Você vai cuidar de várias barracas ao mesmo tempo: bolo, pastel, sorvete e doce. Bora vender!',
+   how:'👆 <b>Toque no balãozinho</b> (ou no cliente) para atender o pedido. Atenda todo mundo antes que a <b>paciência</b> acabe — o círculo em volta do pedido vai ficando vermelho — e bata a <b>meta de vendas</b>! Atender rápido dá gorjeta 🤑.'}),
  ()=>({sp:speaker('cons1','cons2'),t:'A quadra abandonada virou selva e já querem transformar em estacionamento! Acabe com as cobras e aranhas e devolva a quadra aos moradores.',
    how:'🕹️ <b>Arraste para andar</b> — você joga chinelos sozinho! 🍗 Pegue <b>coxinhas</b> para recuperar vida. No fim, enfrente a Aranha Rainha.'}),
 ];
 function startPhase(n){
   curPhase=n;fx=[];banner=null;input.joy=null;DF=diffCfg();MAP.cur=n-1;save.mapAt=n;persist();
-  phase=[Phase1,Phase2,PhaseKids,PhasePets,PhaseSom,PhaseBar,PhaseBox,PhaseEscola,Phase3][n-1]();state='intro';
+  phase=[Phase1,Phase2,PhaseKids,PhasePets,PhaseSom,PhaseBar,PhaseBox,PhaseEscola,PhaseSelfie,PhaseFeira,Phase3][n-1]();state='intro';
   const it=INTROS[n-1](),sp=charById(it.sp);
   show(`<h2>Fase ${n}: ${PH[n-1].name}</h2>
    <div class="dlg"><canvas data-por="${sp.id}"></canvas><div><b>${sp.name} (${sp.role.split(' •')[0]})</b><p>${it.t}</p></div></div>
@@ -298,12 +304,12 @@ const NOTICE_FINAL=`<div class="notice"><b>🎉 VIU COMO É BOM QUANDO TUDO ACAB
 <p>Tá esperando o quê? <b>Procure o subsíndico do condomínio e assine logo a lista</b> para que a gente possa ter ainda mais lazer no condomínio!</p>
 <p>E não é só lazer: <b>mais vagas de estacionamento, academia</b> e muito mais.</p>
 <p>Estamos só esperando você para que esse sonho seja possível. ✍️ <b>Assine a lista!</b></p></div>`;
-const NOTICE_PHASES=[2,3,9];
+const NOTICE_PHASES=[2,3,11];
 function winPhase(msg){
   if(state!=='play')return;state='won';jingle();vib([60,40,60]);
   save.done=save.done||{};const dn=save.done[curPhase]||[];if(!dn.includes(DF.i))dn.push(DF.i);save.done[curPhase]=dn;persist();
-  show(`<div class="big">${PH[curPhase-1].ic}</div><h2>${msg}</h2><p>Fase ${curPhase} concluída!</p>${curPhase===9?NOTICE_FINAL:NOTICE_PHASES.includes(curPhase)?NOTICE:''}
-   <button class="btn main" data-act="next">${curPhase<9?'Próxima fase ▶':'Ver o final 🏆'}</button>
+  show(`<div class="big">${PH[curPhase-1].ic}</div><h2>${msg}</h2><p>Fase ${curPhase} concluída!</p>${curPhase===PH.length?NOTICE_FINAL:NOTICE_PHASES.includes(curPhase)?NOTICE:''}
+   <button class="btn main" data-act="next">${curPhase<PH.length?'Próxima fase ▶':'Ver o final 🏆'}</button>
    <button class="btn small" data-act="map">🗺️ Mapa</button>`);
 }
 function losePhase(msg){
@@ -314,7 +320,7 @@ function losePhase(msg){
 function showEnding(){
   state='menu';phase=null;jingle();
   show(`<div class="big">🏆</div><h2>NARANDIBA PRIME SALVO!</h2>
-   <p>A árvore ficou de pé, você achou vaga, as crianças brincam seguras, os pets são bem-vindos, o silêncio voltou, o mercadinho está tranquilo, as encomendas chegaram, você escapou da multa e a quadra voltou para os moradores. Parabéns, ${hero().name}!</p>
+   <p>A árvore ficou de pé, você achou vaga, as crianças brincam seguras, os pets são bem-vindos, o silêncio voltou, o mercadinho está tranquilo, as encomendas chegaram, o grupo ficou em paz, a feirinha vendeu tudo, você escapou da multa e a quadra voltou para os moradores. Parabéns, ${hero().name}!</p>
    ${NOTICE_FINAL}<button class="btn main" data-act="map">🗺️ Voltar ao mapa</button><button class="btn small" data-act="title">Menu</button><div class="disc">⚠️ Qualquer semelhança com pessoas ou fatos reais é mera coincidência. Baseado em fatos fictícios.</div>`);
 }
 
@@ -325,10 +331,12 @@ let DF=diffCfg();
 const L3=(a,b,c)=>[a,b,c][DF.i];
 
 // =================== MAPA (estilo Mario World) ===================
-const NODES=[[70,540],[190,556],[322,520],[312,425],[180,405],[70,338],[122,240],[272,236],[214,140]];
-const MAP={cur:clamp((save.mapAt||1)-1,0,8),dest:0,x:0,y:0,walking:false,t:0,face:1};
+const NODES=[[70,540],[190,556],[322,520],[312,425],[180,405],[70,338],[122,240],[262,250],[345,190],[278,122],[165,140]];
+if(!save.v10){if(save.done&&save.done[9]){save.done[10]=save.done[9];delete save.done[9];}save.v10=1;persist();}
+if(!save.v11){if(save.done&&save.done[10]){save.done[11]=save.done[10];delete save.done[10];}save.v11=1;persist();}
+const MAP={cur:clamp((save.mapAt||1)-1,0,NODES.length-1),dest:0,x:0,y:0,walking:false,t:0,face:1};
 function showMap(){hide();phase=null;state='map';input.joy=null;MAP.dest=MAP.cur;MAP.walking=false;[MAP.x,MAP.y]=NODES[MAP.cur];}
-function mapGo(i){i=clamp(i,0,8);if(i===MAP.cur&&!MAP.walking)return;MAP.dest=i;MAP.walking=true;}
+function mapGo(i){i=clamp(i,0,NODES.length-1);if(i===MAP.cur&&!MAP.walking)return;MAP.dest=i;MAP.walking=true;}
 function mapUpdate(dt){MAP.t+=dt;
   if(MAP.walking){if(MAP.cur===MAP.dest){MAP.walking=false;return;}
     const nxt=MAP.cur+Math.sign(MAP.dest-MAP.cur),[tx,ty]=NODES[nxt],dx=tx-MAP.x,dy=ty-MAP.y,d=Math.hypot(dx,dy),st=190*dt;
@@ -339,7 +347,7 @@ function mapTap(x,y){
   if(x<100&&y<46){beep(660,.06,'triangle',.05);showTitle();return;}
   for(let i=0;i<3;i++){const px=45+i*110;if(x>px&&x<px+100&&y>52&&y<90){save.diff=i;persist();beep(500+i*150,.08,'triangle',.05);return;}}
   if(x>246&&x<384&&y>622&&y<686){if(!MAP.walking){beep(660,.06,'triangle',.05);startPhase(MAP.cur+1);}return;}
-  for(let i=0;i<9;i++){const [nx,ny]=NODES[i];if(Math.hypot(x-nx,y-ny)<32){if(i===MAP.cur&&!MAP.walking)startPhase(i+1);else mapGo(i);return;}}
+  for(let i=0;i<NODES.length;i++){const [nx,ny]=NODES[i];if(Math.hypot(x-nx,y-ny)<32){if(i===MAP.cur&&!MAP.walking)startPhase(i+1);else mapGo(i);return;}}
 }
 function ptext(g,s,x,y,size,col,weight=800,maxW,align='left'){g.font=`${weight} ${size}px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif`;g.textAlign=align;g.textBaseline='middle';g.fillStyle=col;maxW?g.fillText(s,x,y,maxW):g.fillText(s,x,y);}
 function drawMap(g){
@@ -356,14 +364,14 @@ function drawMap(g){
   // prédios
   [[232,300],[330,330],[40,450],[340,600]].forEach(([x,y],i)=>{g.fillStyle=['#f3e7d3','#e9dcc8','#efe2c8','#e3d3bb'][i];g.fillRect(x-14,y-40,28,40);g.fillStyle='#c0392b';g.fillRect(x-16,y-44,32,5);
     g.fillStyle='#7fb7d9';for(let r=0;r<3;r++){g.fillRect(x-9,y-34+r*11,6,6);g.fillRect(x+3,y-34+r*11,6,6);}});
-  [[40,240],[330,420],[160,330],[110,610],[260,560],[350,240],[60,150],[130,160]].forEach(([x,y])=>drawTree(g,x,y,.26));
-  otext(g,'NARANDIBA PRIME',95,190,12,'#fff','center','#1b5e28');
+  [[40,240],[330,420],[160,330],[110,610],[260,560],[350,240],[40,160],[95,150]].forEach(([x,y])=>drawTree(g,x,y,.26));
+  otext(g,'NARANDIBA PRIME',85,200,12,'#fff','center','#1b5e28');
   // caminho
   g.lineCap='round';g.lineJoin='round';g.strokeStyle='#b98c4a';g.lineWidth=13;g.beginPath();NODES.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y));g.stroke();
   g.strokeStyle='#f7e7b5';g.lineWidth=8;g.stroke();
   g.strokeStyle='#d9b878';g.lineWidth=4;g.setLineDash([2,12]);g.stroke();g.setLineDash([]);
   // nós
-  for(let i=0;i<9;i++){const [x,y]=NODES[i],done=(save.done&&save.done[i+1])||[],fin=i===8,r=fin?25:20;
+  for(let i=0;i<NODES.length;i++){const [x,y]=NODES[i],done=(save.done&&save.done[i+1])||[],fin=i===NODES.length-1,r=fin?25:20;
     if(fin){g.fillStyle='#8e6cc0';g.fillRect(x-24,y-34,48,22);g.fillRect(x-34,y-46,14,34);g.fillRect(x+20,y-46,14,34);g.fillStyle='#6b3fa0';for(const tx of[x-34,x+20])for(let c=0;c<3;c++)g.fillRect(tx+c*5,y-51,3,5);for(let c=0;c<5;c++)g.fillRect(x-22+c*10,y-38,5,4);g.fillStyle='#555';g.fillRect(x+26,y-66,2,16);g.fillStyle='#ffd84d';g.beginPath();g.moveTo(x+28,y-66);g.lineTo(x+28,y-56);g.lineTo(x+40,y-61);g.closePath();g.fill();}
     g.fillStyle='rgba(0,0,0,.25)';ell(g,x,y+r-4,r,6);g.fill();
     g.fillStyle=done.length?'#ffd84d':(fin?'#9b59b6':'#e8453c');circ(g,x,y,r);g.fill();g.strokeStyle='#fff';g.lineWidth=3;g.stroke();
@@ -1095,6 +1103,182 @@ function PhaseEscola(){
   return P;
 }
 
+// =================== A SELFIE DO DIA (grupo do condomínio) ===================
+const SELFIE_GUY={skin:'#d9a07a',hair:'side',hairC:'#2b1d14',shirt:'#ff6b6b',pants:'#333',belly:1.1,glasses:true};
+function PhaseSelfie(){
+  const TOP=144,BOTTOM=686;
+  const P={usesJoy:false,t:0,stage:'play',dur:Math.round(55*DF.t),clock:0,peace:1,msgs:[],nextT:.6,pend:null,endT:0,pinned:null,flood:0,warnT:0};
+  const CAPS=['Bom dia, vizinhos! ☀️','Selfie do dia 😎','Olha eu no elevador 🛗','Treino pago! 💪','Saindo pro trabalho 😁','Pôr do sol da varanda 🌅','Boa noite, grupo! 🌙','Hoje acordei assim 🤳','Look do dia 🕶️'];
+  const BGS=[['#ffd59e','☀️'],['#bde0fe','🛗'],['#c3f0ca','💪'],['#ffc8dd','😎'],['#ffb703','🌅'],['#8d99ae','🌙'],['#a0e7e5','🌴']];
+  const COMPL=['De novo essa selfie? 🙄','Todo santo dia isso! 😤','Ninguém aguenta mais 😩','Grupo é pra aviso, gente!','Lá vem a selfie das 7h…','Vou silenciar esse grupo 😑','Mais uma?! 🤦'];
+  const AVISOS=['📢 Manutenção do elevador amanhã','📢 Falta d’água sexta, das 8h às 12h','📢 Assine a lista do terreno na administração!','📢 Assembleia quinta, 19h, no salão','📢 Dedetização dos blocos no sábado'];
+  const NEUTRAL=['Bom dia! 🌞','Alguém viu um gato cinza? 🐱','Amém 🙏','Kkkkkkkk','Quem tem um carregador emprestado?','Chegou encomenda pro 302 📦','Boa tarde, vizinhos!'];
+  const REPLIES=['Gente, paz! 🕊️','Deixa o vizinho ser feliz 😂','Respira, vizinho! 😅','Faz parte do condomínio 🤷','Cada um com seu jeitinho 😄'];
+  const APS=['Ap 101','Ap 202','Ap 303','Ap 404','Ap 105','Ap 306','Ap 407','Ap 208'],NCOL=['#e8590c','#1971c2','#2f9e44','#ae3ec9','#c2255c','#0c8599'];
+  const clockStr=()=>{const tot=7*60+Math.min(16*60,Math.floor(P.clock/P.dur*16*60));return String(Math.floor(tot/60)).padStart(2,'0')+':'+String(tot%60).padStart(2,'0');};
+  function wrapTxt(s,maxW){ctx.font='600 14px system-ui,sans-serif';const out=[];let cur='';for(const w of s.split(' ')){const t=cur?cur+' '+w:w;if(ctx.measureText(t).width>maxW&&cur){out.push(cur);cur=w;}else cur=t;}out.push(cur);return out;}
+  function add(m){m.time=clockStr();
+    if(m.type==='selfie'){m.h=178;m.w=200;}
+    else{m.lines=wrapTxt(m.text,230);ctx.font='600 14px system-ui,sans-serif';m.w=Math.max(110,Math.min(250,Math.max(...m.lines.map(l=>ctx.measureText(l).width))+24));m.h=m.lines.length*18+(m.right?24:38);}
+    m.x=m.right?W-14-m.w:14;m.y=BOTTOM+30;P.msgs.push(m);
+    let y=BOTTOM;for(let i=P.msgs.length-1;i>=0;i--){const q=P.msgs[i];y-=q.h;q.ty=y;y-=8;}
+    if(m.type==='selfie'||m.type==='aviso')beep(m.type==='aviso'?700:880,.06,'triangle',.03);else beep(620,.04,'triangle',.02);}
+  const selfie=()=>add({type:'selfie',name:'Vizinho da Selfie 🤳',col:'#d6336c',cap:pick(CAPS),bg:pick(BGS),likes:Math.floor(rand(0,4)),done:false});
+  function spawn(){
+    if(P.flood>0){P.flood--;selfie();P.nextT=.5;return;}
+    const onScreen=P.msgs.filter(m=>m.type==='selfie').length,r=Math.random();
+    const pc=onScreen?.32:.14;
+    if(r<.33)selfie();
+    else if(r<.33+pc)add({type:'compl',name:pick(APS),col:pick(NCOL),text:pick(COMPL),done:false});
+    else if(r<.48+pc)add({type:'aviso',name:'Administração',col:'#2b8a3e',text:pick(AVISOS),done:false});
+    else add({type:'neu',name:pick(APS),col:pick(NCOL),text:pick(NEUTRAL)});
+    const k=P.clock/P.dur;P.nextT=Math.max(.65,(rand(1.3,1.9)-k*.6)/DF.k);
+  }
+  P.onTap=(x,y)=>{if(P.stage!=='play')return;
+    for(let i=P.msgs.length-1;i>=0;i--){const m=P.msgs[i];if(m.y<TOP-10)continue;
+      if(x>m.x-4&&x<m.x+m.w+40&&y>m.y&&y<m.y+m.h){
+        if(m.done||m.type==='neu'||m.type==='mine'||m.type==='guy')return;
+        m.done=true;vib(15);
+        if(m.type==='selfie'){m.likes++;beep(990,.08,'triangle',.05,200);for(let j=0;j<6;j++)fx.push({k:'t',x:m.x+m.w/2+rand(-50,50),y:m.y+80+rand(-30,30),s:'❤️',col:'#fff',size:18,life:.9,max:.9});
+          if(Math.random()<.4)setTimeout(()=>{if(P.stage==='play')add({type:'guy',name:'Vizinho da Selfie 🤳',col:'#d6336c',text:pick(['Valeu! 😍 Amanhã tem mais!','Obrigado, vizinho(a)! 🥰','Sabia que iam gostar! 😎'])});},500);}
+        else if(m.type==='compl'){P.peace=Math.min(1,P.peace+.03);beep(520,.08,'triangle',.05,150);setTimeout(()=>{if(P.stage==='play')add({type:'mine',right:true,text:pick(REPLIES)});},250);}
+        else if(m.type==='aviso'){P.pinned=m.text;beep(760,.1,'square',.04,300);txt(m.x+m.w/2,m.y+10,'📌 Fixado!','#2b8a3e',16);}
+        return;}}};
+  P.update=dt=>{P.t+=dt;if(pendTick(P,dt))return;
+    for(const m of P.msgs)m.y+=(m.ty-m.y)*Math.min(1,dt*10);
+    if(P.stage==='play'){P.clock+=dt;P.warnT-=dt;
+      P.nextT-=dt;if(P.nextT<=0)spawn();
+      for(const m of P.msgs){if(m.gone||m.ty+m.h>TOP)continue;m.gone=true;
+        if(m.done===false){
+          if(m.type==='selfie'){P.peace-=.06*DF.k;if(P.flood<3)P.flood+=2;txt(200,TOP+20,'🥺 Ninguém curtiu? Vou mandar mais!','#d6336c',14);}
+          else if(m.type==='compl'){P.peace-=.14*DF.k;txt(200,TOP+20,'😡 '+m.name+' saiu do grupo!','#e03131',14);beep(180,.2,'sawtooth',.05);vib(60);}
+          else if(m.type==='aviso'){P.peace-=.16*DF.k;txt(200,TOP+20,'😱 Ninguém viu o aviso!','#e03131',14);beep(160,.2,'sawtooth',.05);vib(60);}}}
+      P.msgs=P.msgs.filter(m=>m.ty+m.h>TOP-60);
+      if(P.peace<=0){P.peace=0;P.stage='lost';P.pend={t:1,fn:()=>losePhase('O grupo virou bagunça e metade saiu! Curta as selfies, acalme quem reclama e fixe os avisos.')};}
+      if(P.clock>=P.dur){P.stage='win';P.endT=0;setBanner('GRUPO EM PAZ! 🕊️','#7cf08a');confetti(200,360,50);add({type:'guy',name:'Vizinho da Selfie 🤳',col:'#d6336c',text:'Boa noite, grupo! Amanhã tem selfie nova 🤳😂'});}}
+    if(P.stage==='win'){P.endT+=dt;if(P.endT>2.8)winPhase('O grupo sobreviveu ao dia!');}
+  };
+  function drawSelfiePhoto(g,m){const px=m.x+10,py=m.y+24,pw=m.w-20,ph=124;
+    g.save();rr(g,px,py,pw,ph,8);g.clip();g.fillStyle=m.bg[0];g.fillRect(px,py,pw,ph);
+    g.font='26px system-ui';g.textAlign='center';g.textBaseline='middle';g.fillText(m.bg[1],px+pw-22,py+22);
+    drawPerson(g,px+pw/2-8,py+ph+52,2.1,SELFIE_GUY,{});
+    g.fillStyle=SELFIE_GUY.skin;circ(g,px+pw/2+48,py+ph-6,9);g.fill();g.fillStyle='#222';rr(g,px+pw/2+40,py+ph-40,16,28,3);g.fill();
+    g.restore();
+    if(m.likes>0){g.fillStyle='rgba(255,255,255,.92)';rr(g,px+6,py+ph-24,48,20,10);g.fill();ptext(g,'❤️ '+m.likes,px+30,py+ph-14,12,'#c2255c',800,0,'center');}
+  }
+  P.draw=g=>{
+    g.fillStyle='#ece5dd';g.fillRect(0,0,W,H);
+    g.globalAlpha=.07;g.font='18px system-ui';g.textAlign='center';g.textBaseline='middle';
+    for(let i=0;i<40;i++)g.fillText(['🏢','🚗','🐶','📦','🌳','🔊'][i%6],(i*97)%400+10,(i*61)%640+80);g.globalAlpha=1;
+    g.fillStyle='#128c7e';g.fillRect(0,74,W,46);g.fillStyle='#fff';circ(g,30,97,16);g.fill();
+    g.font='18px system-ui';g.textAlign='center';g.textBaseline='middle';g.fillText('🏢',30,98);
+    ptext(g,'Condomínio Narandiba Prime',54,90,15,'#fff',900,300);ptext(g,'Saulo, Iago, Freida, Osvaldo, Maya, Adones e mais 120…',54,108,10,'rgba(255,255,255,.8)',600,300);
+    if(P.pinned){g.fillStyle='#fff';g.fillRect(0,120,W,24);g.fillStyle='rgba(0,0,0,.08)';g.fillRect(0,143,W,1);ptext(g,'📌 '+P.pinned,10,132,11,'#333',700,380);}
+    g.save();g.beginPath();g.rect(0,P.pinned?144:120,W,H);g.clip();
+    for(const m of P.msgs){if(m.y>H)continue;
+      const mine=m.type==='mine';
+      g.fillStyle='rgba(0,0,0,.12)';rr(g,m.x,m.y+2,m.w,m.h,10);g.fill();
+      g.fillStyle=mine?'#dcf8c6':m.type==='aviso'?'#fff3bf':'#fff';rr(g,m.x,m.y,m.w,m.h,10);g.fill();
+      if(m.type==='aviso'){g.strokeStyle='#f59f00';g.lineWidth=2;rr(g,m.x,m.y,m.w,m.h,10);g.stroke();}
+      if(!mine)ptext(g,m.name,m.x+10,m.y+13,12,m.col,900,m.w-20);
+      if(m.type==='selfie'){drawSelfiePhoto(g,m);ptext(g,m.cap,m.x+10,m.y+162,13,'#222',600,m.w-50);}
+      else m.lines.forEach((l,i)=>ptext(g,l,m.x+12,m.y+(mine?14:32)+i*18,14,'#222',600));
+      ptext(g,m.time+(mine?' ✓✓':''),m.x+m.w-8,m.y+m.h-8,9,mine?'#34b7f1':'#999',700,0,'right');
+      if(m.done===false&&P.stage==='play'){const pu=1+.12*Math.sin(P.t*8),bx=m.x+m.w+20,by=m.y+m.h/2;
+        g.save();g.translate(bx,by);g.scale(pu,pu);g.fillStyle=m.type==='selfie'?'#ff6b9a':m.type==='compl'?'#4dabf7':'#ffd43b';circ(g,0,0,15);g.fill();
+        g.strokeStyle='#fff';g.lineWidth=2.5;g.stroke();g.font='15px system-ui';g.textAlign='center';g.textBaseline='middle';g.fillText(m.type==='selfie'?'❤️':m.type==='compl'?'💬':'📌',0,1);g.restore();}
+      if(m.done===true){ptext(g,m.type==='selfie'?'Curtido ✓':m.type==='compl'?'Respondido ✓':'Fixado ✓',m.x+m.w+8,m.y+m.h/2,10,'#2b8a3e',800);}
+    }
+    g.restore();
+  };
+  P.hud=g=>{hudBar(g,'FASE '+curPhase,`🕖 ${clockStr()}`,'Até 23h');meterBar(g,P.peace,P.peace>.4?'#7cf08a':'#ff4d4d','Paz no grupo 🕊️');};
+  P.meta=`Mantenha a paz no grupo das 7h às 23h (${P.dur}s)`;
+  return P;
+}
+
+// =================== FEIRINHA DO EMPREENDEDOR ===================
+function PhaseFeira(){
+  const P={usesJoy:false,t:0,stage:'play',time:Math.round(60*DF.t),money:0,goal:Math.round(200*DF.g/10)*10,angry:0,maxAngry:L3(7,5,3),cust:[],spawnT:.8,pend:null,endT:0,served:0};
+  P.stalls=[
+    {x:100,y:235,name:'Bolo',ic:'🎂',price:8,serve:.75,col:'#ff8fab'},
+    {x:300,y:235,name:'Pastel',ic:'🥟',price:7,serve:1.0,col:'#ffb703'},
+    {x:100,y:470,name:'Sorvete',ic:'🍦',price:6,serve:.45,col:'#8ecae6'},
+    {x:300,y:470,name:'Doces',ic:'🍬',price:4,serve:.5,col:'#c77dff'}];
+  P.stalls.forEach(s=>{s.q=[];});
+  const pl=P.pl={x:200,y:360,tx:200,ty:360,t:0,moving:false,face:1,at:null,serveT:0};
+  const spot=s=>({x:s.x,y:s.y+26});
+  const qpos=(s,i)=>({x:s.x-44+i*44,y:s.y+150});
+  function spawn(){const free=P.stalls.filter(s=>s.q.length<3);if(!free.length)return;const s=pick(free);
+    const top=s.y<300,st=top?{x:s.x<200?-25:425,y:s.y+150}:{x:s.x+rand(-40,40),y:730};
+    const c={c:Math.random()<.3?kidChar():partyChar(),kid:false,x:st.x,y:st.y,state:'walk',pat:1,patMax:rand(6,8.5)*DF.t/(1+P.t/120),t:rand(0,9),s,flip:false};
+    c.kid=c.c.belly<.9;s.q.push(c);P.cust.push(c);}
+  function serve(c){const s=c.s;s.q.splice(s.q.indexOf(c),1);c.state='happy';c.dir=c.x<200?-1:1;
+    const tip=c.pat>.6?2:0;P.money+=s.price+tip;P.served++;const p=spot(s);pl.tx=p.x;pl.ty=p.y;
+    txt(c.x,c.y-88,`+R$${s.price}`+(tip?' 🤑':''),tip?'#ffd84d':'#7cf08a',16);beep(880,.06,'square',.04);setTimeout(()=>beep(1175,.08,'square',.04),70);burst(c.x,c.y-60,'#ffd84d',6,90);vib(15);
+    if(P.money>=P.goal){P.stage='win';P.endT=0;setBanner('META BATIDA! 💰','#7cf08a');confetti(200,360,60);
+      P.cust.forEach(o=>{if(o.state==='wait'||o.state==='walk'){o.state='happy';o.dir=o.x<200?-1:1;}});P.stalls.forEach(st=>st.q=[]);}}
+  P.onTap=(x,y)=>{if(P.stage!=='play')return;let best=null,bd=1e9;
+    for(const c of P.cust){if(c.state!=='wait')continue;const by=c.y-(c.kid?58:72);
+      const db=Math.hypot(x-c.x,y-by),inBody=Math.abs(x-c.x)<22&&y>by-20&&y<c.y+6;
+      if(db<26||inBody){const d=Math.min(db,Math.abs(x-c.x)+Math.abs(y-(c.y-30))*.5);if(d<bd){bd=d;best=c;}}}
+    if(best)serve(best);};
+  P.update=dt=>{P.t+=dt;if(pendTick(P,dt))return;
+    pl.t+=dt;{const dx=pl.tx-pl.x,dy=pl.ty-pl.y,d=Math.hypot(dx,dy),st=330*dt;pl.moving=d>1;
+      if(d<=st){pl.x=pl.tx;pl.y=pl.ty;if(!pl.at)pl.at=P.stalls.find(s=>Math.abs(spot(s).x-pl.x)<1&&Math.abs(spot(s).y-pl.y)<1)||null;}
+      else{pl.x+=dx/d*st;pl.y+=dy/d*st;if(Math.abs(dx)>1)pl.face=dx>0?1:-1;}}
+    for(const s of P.stalls)s.q.forEach((c,i)=>{c.qi=i;});
+    for(const c of P.cust){c.t+=dt;
+      if(c.state==='walk'||c.state==='wait'){const p=qpos(c.s,c.qi),dx=p.x-c.x,dy=p.y-c.y,d=Math.hypot(dx,dy),st=130*dt;
+        if(d<=st){c.x=p.x;c.y=p.y;c.state='wait';}else{c.x+=dx/d*st;c.y+=dy/d*st;c.flip=dx<0;c.state='walk';}
+        if(P.stage==='play'&&c.state==='wait'){c.pat-=dt/c.patMax;
+          if(c.pat<=0){c.state='angry';c.s.q.splice(c.s.q.indexOf(c),1);P.angry++;c.dir=c.x<200?-1:1;txt(c.x,c.y-80,pick(['😡 Demorou!','Desisto! 😤','Vou embora! 😠']),'#ff6b6b',15);beep(170,.25,'sawtooth',.05,-60);vib(70);
+            if(P.angry>=P.maxAngry&&P.stage==='play'){P.stage='lost';P.pend={t:1,fn:()=>losePhase('Clientes demais foram embora sem ser atendidos! Corra mais entre as barracas.')};}}}}
+      else{c.x+=c.dir*150*dt;c.flip=c.dir<0;}}
+    P.cust=P.cust.filter(c=>c.x>-50&&c.x<450);
+    if(P.stage==='play'){
+      P.time-=dt;
+      P.spawnT-=dt;if(P.spawnT<=0){spawn();if(P.t>25&&Math.random()<.3)spawn();P.spawnT=Math.max(.45,(rand(.9,1.3)-P.t*.008)/DF.k);}
+      if(P.time<=0&&P.stage==='play'){P.time=0;P.stage='lost';P.pend={t:.8,fn:()=>losePhase(`O tempo acabou! Faltaram R$ ${P.goal-P.money} para bater a meta.`)};}
+    }
+    if(P.stage==='win'){P.endT+=dt;if(P.endT>2.6)winPhase(`Vendeu tudo! R$ ${P.money} no caixa 💰`);}
+  };
+  function drawStall(g,s){
+    const x=s.x,y=s.y;
+    g.fillStyle='rgba(0,0,0,.18)';ell(g,x,y+70,82,10);g.fill();
+    g.fillStyle='#8b5a2b';g.fillRect(x-74,y-62,6,128);g.fillRect(x+68,y-62,6,128);
+    g.fillStyle='#a0522d';rr(g,x-80,y+26,160,44,6);g.fill();g.fillStyle='#c68642';rr(g,x-80,y+26,160,10,4);g.fill();
+    g.font='22px system-ui';g.textAlign='center';g.textBaseline='middle';for(let i=0;i<4;i++)g.fillText(s.ic,x-48+i*32,y+20);
+    for(let i=0;i<8;i++){g.fillStyle=i%2?'#fff':s.col;g.beginPath();g.moveTo(x-84+i*21,y-62);g.lineTo(x-84+(i+1)*21,y-62);g.lineTo(x-84+(i+1)*21,y-46);g.arc(x-84+i*21+10.5,y-46,10.5,0,Math.PI);g.closePath();g.fill();}
+    g.fillStyle=s.col;g.beginPath();g.moveTo(x-88,y-62);g.lineTo(x,y-92);g.lineTo(x+88,y-62);g.closePath();g.fill();
+    g.fillStyle='#fffdf2';rr(g,x-52,y+40,104,24,6);g.fill();ptext(g,`${s.name} R$${s.price}`,x,y+52,13,'#5e381b',900,96,'center');
+  }
+  P.draw=g=>{
+    g.fillStyle='#e9dfc9';g.fillRect(0,0,W,H);g.strokeStyle='rgba(0,0,0,.06)';g.lineWidth=1;
+    for(let y=60;y<H;y+=32)for(let x=(y/32%2)*16;x<W;x+=32)g.strokeRect(x,y,32,32);
+    const fl=['#e03131','#ffd43b','#1971c2','#2f9e44','#ae3ec9','#f08c00'];
+    g.strokeStyle='#555';g.lineWidth=1.5;g.beginPath();g.moveTo(0,78);g.quadraticCurveTo(200,108,400,78);g.stroke();
+    for(let i=0;i<16;i++){const x=i*25+6,y=78+Math.sin((x/400)*Math.PI)*15;g.fillStyle=fl[i%6];g.beginPath();g.moveTo(x,y);g.lineTo(x+18,y);g.lineTo(x+9,y+16);g.closePath();g.fill();}
+    g.fillStyle='#2f9e44';rr(g,90,112,220,30,10);g.fill();otext(g,'🛍️ FEIRINHA DO NARANDIBA',200,127,13,'#fff','center','#1b5e28');
+    const ents=[];
+    for(const s of P.stalls){ents.push({y:s.y+26,f:()=>drawStall(g,s)});}
+    ents.push({y:pl.y-1,f:()=>{drawPerson(g,pl.x,pl.y,.8,hero(),{walking:pl.moving,t:pl.t,flip:pl.face<0});
+      g.fillStyle='#fff';rr(g,pl.x-8,pl.y-36,16,18,3);g.fill();
+}});
+    for(const c of P.cust)ents.push({y:c.y,f:()=>{
+      drawPerson(g,c.x,c.y,c.kid?.55:.72,c.c,{walking:c.state!=='wait',t:c.t,flip:c.flip,angry:c.state==='angry'||(c.state==='wait'&&c.pat<.3)});
+      if(c.state==='wait'||c.state==='walk'){const by=c.y-(c.kid?58:72),pu=c.state==='wait'?1+.06*Math.sin(P.t*7+c.t):1;g.save();g.translate(c.x,by);g.scale(pu,pu);g.translate(-c.x,-by);g.fillStyle='rgba(0,0,0,.15)';circ(g,c.x,by+2,15);g.fill();g.fillStyle='#fff';circ(g,c.x,by,15);g.fill();
+        g.strokeStyle=c.pat>.5?'#40c057':c.pat>.25?'#fab005':'#fa5252';g.lineWidth=3.5;g.beginPath();g.arc(c.x,by,14,-Math.PI/2,-Math.PI/2+Math.PI*2*clamp(c.pat,0,1));g.stroke();
+        g.font='16px system-ui';g.textAlign='center';g.textBaseline='middle';g.fillText(c.s.ic,c.x,by+1);g.restore();}
+      if(c.state==='happy'){g.font='16px system-ui';g.textAlign='center';g.fillText(c.s.ic,c.x+12,c.y-30);}}});
+    ents.sort((a,b)=>a.y-b.y).forEach(e=>e.f());
+  };
+  P.hud=g=>{hudBar(g,'FASE '+curPhase,`💰 R$ ${P.money}/${P.goal}`,`⏱ ${Math.ceil(P.time)}s`);
+    g.fillStyle='rgba(0,0,0,.5)';rr(g,120,52,160,22,11);g.fill();otext(g,`😡 Foram embora: ${P.angry}/${P.maxAngry}`,200,63,12,'#fff');
+    if(P.t<4){g.globalAlpha=clamp(4-P.t,0,1);otext(g,'👆 Toque no balãozinho do cliente para atender',200,670,14,'#fff');g.globalAlpha=1;}};
+  P.meta=`Venda R$ ${P.goal} em ${P.time}s • perde se ${P.maxAngry} clientes forem embora`;
+  return P;
+}
+
 // =================== FINAL PHASE: QUADRA ===================
 function Phase3(){
   const C={x:70,y:190,w:260,h:340};
@@ -1235,7 +1419,7 @@ function musicTick(){
   const target=playing?(AC.currentTime<Music.duckUntil?.15:1):0;
   Music.gain.gain.setTargetAtTime(target,AC.currentTime,.08);
   if(!playing){Music.next=0;return;}
-  const inGame=!!phase;Music.tempo=inGame?160:136;Music.tr=inGame?TRANS[(curPhase-1)%9]:0;
+  const inGame=!!phase;Music.tempo=inGame?160:136;Music.tr=inGame?TRANS[(curPhase-1)%TRANS.length]:0;
   if(Music.next<AC.currentTime)Music.next=AC.currentTime+.05;
   const spb=60/Music.tempo/2;
   while(Music.next<AC.currentTime+.2){
